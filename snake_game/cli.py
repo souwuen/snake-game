@@ -2,6 +2,7 @@
 
 import argparse
 import curses
+import sys
 import time
 
 from snake_game.game import Game
@@ -12,6 +13,8 @@ def _write(stdscr: curses.window, row: int, text: str) -> None:
     """Безопасно выводит строку, не выходя за границы окна."""
     height, width = stdscr.getmaxyx()
     if 0 <= row < height and width > 1:
+        stdscr.move(row, 0)
+        stdscr.clrtoeol()
         stdscr.addstr(row, 0, text[: width - 1])
 
 
@@ -70,9 +73,11 @@ def _pause(stdscr: curses.window, game: Game) -> bool:
     """Ожидает продолжения после паузы; False означает выход."""
     stdscr.timeout(100)
     while True:
-        _draw(stdscr, game, ("Пауза: P — продолжить, Q — выйти",))
-        key = stdscr.getch()
+        if _draw(stdscr, game):
+            _write(stdscr, game.height + 3, "P: дальше | Q: выход")
+            stdscr.refresh()
 
+        key = stdscr.getch()
         if key in (ord("p"), ord("P")):
             return True
         if key in (ord("q"), ord("Q")):
@@ -80,16 +85,15 @@ def _pause(stdscr: curses.window, game: Game) -> bool:
 
 
 def _game_over(stdscr: curses.window, game: Game) -> bool:
-    """Показывает итог и возвращает выбор о повторной игре."""
+    """Показывает счёт и возвращает выбор о повторной игре."""
     stdscr.timeout(100)
-    footer = (
-        f"Игра окончена! Счёт: {game.score}",
-        "Y — сыграть ещё раз, Q — выйти",
-    )
     while True:
-        _draw(stdscr, game, footer)
-        key = stdscr.getch()
+        if _draw(stdscr, game):
+            _write(stdscr, game.height + 2, f"Конец игры | Счёт: {game.score}")
+            _write(stdscr, game.height + 3, "Y: снова | Q: выход")
+            stdscr.refresh()
 
+        key = stdscr.getch()
         if key in (ord("y"), ord("Y")):
             return True
         if key in (ord("q"), ord("Q")):
@@ -156,10 +160,14 @@ def main() -> None:
     parser.add_argument("--height", type=int, default=15, help="высота поля")
     parser.add_argument("--speed", type=float, default=8, help="ходов в секунду")
     args = parser.parse_args()
+    if not sys.stdin.isatty() or not sys.stdout.isatty():
+        parser.error("Запустите игру в терминале.")
 
     try:
         while curses.wrapper(_play, args.width, args.height, args.speed):
             pass
+    except curses.error:
+        parser.error("Не удалось открыть интерфейс. Запустите игру в терминале.")
     except ValueError as error:
         parser.error(str(error))
 
