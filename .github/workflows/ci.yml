@@ -1,0 +1,22 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - uses: astral-sh/setup-uv@v10.3.2
+        with:
+          version: "0.13.7"
+      - run: uv sync --locked --group dev
+      - run: uv run --locked --group dev pytest
+      - run: uv run --locked --group dev ruff check .
+      - run: uv run --locked --group dev ruff format --check .
+      - run: uv run --locked --group dev mypy --strict snake_game tests snake.py
